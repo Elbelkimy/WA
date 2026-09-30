@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>WhatsApp</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="WhatsApp">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #25D366;
+      --green-soft: #b9f0c8;
+      --ink: #161616;
+      --muted: #8a8f8c;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: #fff;
+      color: var(--ink);
+      font-family: 'Nunito', ui-rounded, system-ui, -apple-system, 'Segoe UI', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
+    }
+    main {
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+      margin-top: -6vh;
+    }
+    .logo { width: 80px; height: 80px; display: block; transform: translateY(-20px); }
+
+    input {
+      width: 100%;
+      height: 54px;
+      padding: 0 18px;
+      font: 700 17px/1 inherit;
+      font-family: inherit;
+      color: var(--ink);
+      background: #fff;
+      border: 2px solid var(--green-soft);
+      border-radius: 14px;
+      outline: none;
+      direction: ltr;
+      text-align: center;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input::placeholder { color: #a3a8a5; font-weight: 600; }
+    input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 4px rgba(37, 211, 102, .15);
+    }
+
+    button {
+      width: 78px;
+      height: 78px;
+      border-radius: 50%;
+      border: 2px solid var(--green-soft);
+      background: #fff;
+      color: var(--green-soft);
+      font: 800 19px/1 inherit;
+      font-family: inherit;
+      letter-spacing: .5px;
+      cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s, transform .1s;
+    }
+    button.ready {
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+    }
+    button.ready:active { transform: scale(.94); }
+    button:focus-visible { outline: 3px solid var(--green); outline-offset: 3px; }
+    button:disabled { cursor: default; }
+
+    .hint {
+      margin: -10px 0 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-align: center;
+      text-align: center;
+    }
+    .hint:empty { display: none; }
+    .hint.error { color: #d94a4a; }
+
+  </style>
+</head>
+<body>
+  <main>
+    <img class="logo" src="logo.png" alt="WhatsApp" width="80" height="80">
+
+    <input id="num" type="tel" inputmode="tel" autocomplete="off" autocorrect="off"
+           placeholder="Enter the number..." aria-label="Phone number">
+
+    <button id="go" type="button" disabled>GO</button>
+
+    <p id="hint" class="hint"></p>
+  </main>
+
+  <script>
+    var input = document.getElementById('num');
+    var btn = document.getElementById('go');
+    var hint = document.getElementById('hint');
+    var DEFAULT_HINT = hint.textContent;
+
+    // Turns whatever was typed into a WhatsApp-ready number (digits only, with country code)
+    function normalize(raw) {
+      var s = raw.replace(/[\u0660-\u0669]/g, function (d) { return d.charCodeAt(0) - 0x0660; })   // Arabic-Indic digits
+                 .replace(/[\u06F0-\u06F9]/g, function (d) { return d.charCodeAt(0) - 0x06F0; });  // Persian digits
+      var hasPlus = s.trim().charAt(0) === '+';
+      var digits = s.replace(/\D/g, '');
+      if (!hasPlus) {
+        if (digits.indexOf('00') === 0) digits = digits.slice(2);        // 0044... -> 44...
+        else if (digits.charAt(0) === '0') digits = '20' + digits.slice(1); // 010... -> 2010... (Egypt)
+      }
+      return digits;
+    }
+
+    // Egyptian numbers (country code 20) must be complete: 20 + 10 digits (e.g. 01270802704 = 11 digits locally)
+    function isValid(n) {
+      if (n.indexOf('20') === 0) return n.length === 12;
+      return n.length >= 8 && n.length <= 15;
+    }
+
+    function refresh() {
+      var ok = isValid(normalize(input.value));
+      btn.disabled = !ok;
+      btn.classList.toggle('ready', ok);
+      hint.textContent = DEFAULT_HINT;
+      hint.classList.remove('error');
+    }
+
+    function go() {
+      var n = normalize(input.value);
+      if (!isValid(n)) {
+        hint.textContent = 'That number looks too short or too long';
+        hint.classList.add('error');
+        return;
+      }
+      var web = 'https://wa.me/' + n;
+      if (/Android/i.test(navigator.userAgent)) {
+        // No package set on purpose: Android itself decides, and asks you
+        // (WhatsApp or WhatsApp Business) when more than one app can handle it.
+        window.location.href = 'intent://send?phone=' + n + '#Intent;scheme=whatsapp;' +
+          'S.browser_fallback_url=' + encodeURIComponent(web) + ';end';
+      } else {
+        window.location.href = web;
+      }
+    }
+
+    input.addEventListener('input', refresh);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+    btn.addEventListener('click', go);
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>
